@@ -23,7 +23,7 @@ public interface NamespaceSetupActivities {
     /** Polls until the service account is ready (GET succeeds), heartbeating each iteration. */
     void waitForServiceAccountReady(String serviceAccountId);
 
-    /** Grants NAMESPACE_WRITE access to the service account on the namespace. */
+    /** Grants PERMISSION_WRITE access to the service account on the namespace. */
     void grantNamespaceAccess(String namespaceId, String serviceAccountId);
 
     /** Creates an API key for the service account. Returns key ID + token. */

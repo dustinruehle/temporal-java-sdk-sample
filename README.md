@@ -8,7 +8,7 @@ A showcase project demonstrating workflow and activity patterns using the Tempor
 |---|---|
 | Java | 21+ |
 | Gradle | Included via wrapper (`./gradlew`) |
-| Temporal Cloud | Account with an API key |
+| [Temporal Cloud](https://docs.temporal.io/cloud/get-started) | Account with an API key |
 
 ## Project Structure
 
@@ -87,7 +87,7 @@ Tests use the Temporal test framework with an in-memory server — no Cloud conn
 
 ## How It Works
 
-The Hello World example follows the standard Temporal workflow → activity pattern:
+The Hello World example follows the standard Temporal [workflow](https://docs.temporal.io/workflows) → [activity](https://docs.temporal.io/activities) pattern:
 
 1. **`HelloWorldStarter`** creates a `WorkflowClient` connected to Temporal Cloud and starts the `sayHello` workflow
 2. **`HelloWorldWorkflow`** receives the call and delegates to the `greet` activity
@@ -106,7 +106,7 @@ Key classes:
 
 ## Namespace Management (Cloud Operations API)
 
-This example demonstrates programmatic namespace creation on Temporal Cloud using the [Cloud Operations API](https://docs.temporal.io/ops). The Java SDK's `RegisterNamespace` gRPC call only works with self-hosted Temporal — for Cloud, you must use the Cloud Operations REST API.
+This example demonstrates programmatic [namespace](https://docs.temporal.io/cloud/namespaces) creation on Temporal Cloud using the [Cloud Operations API](https://docs.temporal.io/ops). The Java SDK's `RegisterNamespace` gRPC call only works with self-hosted Temporal — for Cloud, you must use the Cloud Operations REST API. See also: [Service Accounts](https://docs.temporal.io/cloud/service-accounts), [API Keys](https://docs.temporal.io/cloud/api-keys), [Cloud Access Control](https://docs.temporal.io/best-practices/cloud-access-control), and [tcld namespace commands](https://docs.temporal.io/cloud/tcld/namespace) (CLI alternative).
 
 **Setup:**
 
@@ -160,7 +160,7 @@ The response will print a **service account ID** (e.g. `sa-abc123`). This is dif
 ```bash
 # Uses the sa-xxxxx ID, not the display name
 ./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
-  --args="grant-ns-access my-namespace.acctid sa-abc123 NAMESPACE_WRITE"
+  --args="grant-ns-access my-namespace.acctid sa-abc123 PERMISSION_WRITE"
 ```
 
 **Create an API key for a service account:**
@@ -180,7 +180,7 @@ The response will print a **service account ID** (e.g. `sa-abc123`). This is dif
   --args="setup my-namespace aws-us-east-1"
 ```
 
-This creates a namespace with API key auth, waits for it to become ACTIVE, creates a service account, grants it `NAMESPACE_WRITE` access, and creates an API key — all in one command.
+This creates a namespace with API key auth, waits for it to become ACTIVE, creates a service account, grants it `PERMISSION_WRITE` access, and creates an API key — all in one command.
 
 **Delete a namespace:**
 ```bash
@@ -200,24 +200,60 @@ This example reimplements the imperative `NamespaceManagerDemo.setup()` flow as 
 
 **What it demonstrates:**
 - Workflow orchestration of multi-step provisioning
-- Granular activities for visibility and retryability
+- Granular activities for visibility and retryability ([activity timeouts](https://docs.temporal.io/activities#activity-timeouts), [retry policies](https://docs.temporal.io/retry-policies))
+- Long-running polling with [activity heartbeating](https://docs.temporal.io/activities#activity-heartbeat)
 - Durable timers with `Workflow.sleep()` for polling loops
 - Dynamic Temporal client creation (connecting to a freshly provisioned namespace at runtime)
 
 **Architecture:**
-```
-[Existing Temporal instance]                    [Temporal Cloud - new namespace]
-        │                                                  │
-  NamespaceSetupWorker                              HelloWorldWorker
-        │                                           (started in-process
-  NamespaceSetupWorkflow                             by final activity)
-   ├─ createNamespace()         ── REST ──►  Cloud Ops API
-   ├─ Workflow.sleep + getNamespaceState() loop
-   ├─ createServiceAccount()    ── REST ──►  Cloud Ops API
-   ├─ Workflow.sleep + isServiceAccountReady() loop
-   ├─ grantNamespaceAccess()    ── REST ──►  Cloud Ops API
-   ├─ createApiKey()            ── REST ──►  Cloud Ops API
-   └─ runHelloWorldWorkflow()   ── gRPC ──►  New namespace
+```mermaid
+sequenceDiagram
+    participant S as Starter
+    participant W as NamespaceSetupWorkflow
+    participant A as Activities
+    participant API as Cloud Ops API
+    participant NS as New Namespace
+
+    S->>W: setup(name, region)
+
+    W->>A: createNamespace(name, region)
+    A->>API: POST /cloud/namespaces
+    API-->>A: namespaceId
+
+    W->>A: waitForNamespaceActive(namespaceId)
+    loop Poll with heartbeat
+        A->>API: GET /cloud/namespaces/{id}
+        API-->>A: state
+    end
+
+    W->>A: createServiceAccount("sa-" + name)
+    A->>API: POST /cloud/service-accounts
+    API-->>A: serviceAccountId
+
+    W->>A: waitForServiceAccountReady(serviceAccountId)
+    loop Poll with heartbeat
+        A->>API: GET /cloud/service-accounts/{id}
+        API-->>A: status
+    end
+
+    W->>A: grantNamespaceAccess(namespaceId, serviceAccountId)
+    A->>API: POST /cloud/namespaces/{id}/service-accounts/{saId}/access
+
+    W->>A: createApiKey("key-" + name, serviceAccountId)
+    A->>API: POST /cloud/api-keys
+    API-->>A: keyId + token
+
+    W->>A: waitForNamespaceConnectivity(namespaceId, region, token)
+    loop Poll with heartbeat
+        A->>NS: gRPC describeNamespace
+        NS-->>A: PERMISSION_DENIED / OK
+    end
+
+    W->>A: runHelloWorldWorkflow(namespaceId, region, token)
+    A->>NS: Start HelloWorld worker + execute workflow
+    NS-->>A: "Hello, Namespace Setup!"
+
+    W-->>S: NamespaceSetupResult
 ```
 
 **Setup:**
@@ -270,3 +306,17 @@ You can watch the workflow in the Temporal Web UI — each activity is visible a
 - [ ] Side effects and `MutableSideEffect`
 - [ ] Custom data converters
 - [ ] OpenTelemetry interceptors
+
+## References
+
+- [Temporal Cloud Guide](https://docs.temporal.io/cloud)
+- [Cloud Operations API](https://docs.temporal.io/ops)
+- [Cloud Namespaces](https://docs.temporal.io/cloud/namespaces)
+- [Service Accounts](https://docs.temporal.io/cloud/service-accounts)
+- [API Keys](https://docs.temporal.io/cloud/api-keys)
+- [Cloud Access Control](https://docs.temporal.io/best-practices/cloud-access-control)
+- [Workflows](https://docs.temporal.io/workflows)
+- [Activities](https://docs.temporal.io/activities)
+- [Retry Policies](https://docs.temporal.io/retry-policies)
+- [Namespaces](https://docs.temporal.io/namespaces)
+- [Temporal Java SDK](https://docs.temporal.io/develop/java)

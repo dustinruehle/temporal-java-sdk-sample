@@ -41,7 +41,7 @@ import java.time.temporal.ChronoUnit;
  *
  * # Grant a service account access to a namespace:
  * ./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
- *   --args="grant-ns-access my-namespace.acctid sa-xxxx NAMESPACE_WRITE"
+ *   --args="grant-ns-access my-namespace.acctid sa-xxxx PERMISSION_WRITE"
  *
  * # One-shot setup (namespace + service account + access + API key):
  * ./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
@@ -121,14 +121,14 @@ public class NamespaceManagerDemo {
             case "grant-ns-access" -> {
                 if (args.length < 3) {
                     System.err.println("Error: 'grant-ns-access' requires a namespace ID and service account ID.");
-                    System.err.println("  Example: grant-ns-access my-ns.acctid sa-xxxx NAMESPACE_WRITE");
+                    System.err.println("  Example: grant-ns-access my-ns.acctid sa-xxxx PERMISSION_WRITE");
                     System.err.println();
                     printUsage();
                     System.exit(1);
                 }
                 String nsId = args[1];
                 String saId = args[2];
-                String permission = args.length >= 4 ? args[3] : "NAMESPACE_WRITE";
+                String permission = args.length >= 4 ? args[3] : "PERMISSION_WRITE";
                 grantNamespaceAccess(admin, nsId, saId, permission);
             }
             case "setup" -> {
@@ -372,7 +372,7 @@ public class NamespaceManagerDemo {
 
         // Step 4: Wait for service account to be available, then grant namespace access
         System.out.println();
-        System.out.println("[4/5] Granting NAMESPACE_WRITE access...");
+        System.out.println("[4/5] Granting PERMISSION_WRITE access...");
         System.out.println("  Waiting for service account to be available...");
         boolean saReady = false;
         for (int attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
@@ -392,7 +392,7 @@ public class NamespaceManagerDemo {
             System.err.println("Timed out waiting for service account to become available. Aborting setup.");
             return;
         }
-        admin.setServiceAccountNamespaceAccess(namespaceId, serviceAccountId, "NAMESPACE_WRITE");
+        admin.setServiceAccountNamespaceAccess(namespaceId, serviceAccountId, "PERMISSION_WRITE");
         System.out.println("  Access granted.");
 
         // Step 5: Create API key
@@ -448,7 +448,7 @@ public class NamespaceManagerDemo {
         System.err.println("Update actions: enable-apikey-auth, disable-apikey-auth");
         System.err.println("API key expiry defaults to 90 days from now if not specified.");
         System.err.println("Account role defaults to ROLE_READ. Options: ROLE_OWNER, ROLE_ADMIN, ROLE_DEVELOPER, ROLE_READ, etc.");
-        System.err.println("Namespace permission defaults to NAMESPACE_WRITE. Options: NAMESPACE_ADMIN, NAMESPACE_WRITE, NAMESPACE_READ");
+        System.err.println("Namespace permission defaults to PERMISSION_WRITE. Options: PERMISSION_ADMIN, PERMISSION_WRITE, PERMISSION_READ");
         System.err.println();
         System.err.println("Examples:");
         System.err.println("  ./gradlew execute -PmainClass=" + mainClass
@@ -468,7 +468,7 @@ public class NamespaceManagerDemo {
         System.err.println("  ./gradlew execute -PmainClass=" + mainClass
                 + " --args=\"create-service-account my-worker-sa ROLE_DEVELOPER\"");
         System.err.println("  ./gradlew execute -PmainClass=" + mainClass
-                + " --args=\"grant-ns-access my-ns.acctid sa-xxxx NAMESPACE_WRITE\"");
+                + " --args=\"grant-ns-access my-ns.acctid sa-xxxx PERMISSION_WRITE\"");
         System.err.println("  ./gradlew execute -PmainClass=" + mainClass
                 + " --args=\"setup my-namespace aws-us-east-1\"");
         System.err.println("  ./gradlew execute -PmainClass=" + mainClass

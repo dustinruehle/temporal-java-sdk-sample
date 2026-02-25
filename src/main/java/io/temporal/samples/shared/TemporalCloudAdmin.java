@@ -217,7 +217,7 @@ public final class TemporalCloudAdmin {
      *
      * @param namespace the full namespace ID (e.g. "my-ns.acctid")
      * @param serviceAccountId the service account ID (e.g. "sa-xxxx")
-     * @param permission one of "NAMESPACE_ADMIN", "NAMESPACE_WRITE", "NAMESPACE_READ"
+     * @param permission one of "PERMISSION_ADMIN", "PERMISSION_WRITE", "PERMISSION_READ"
      */
     public JsonObject setServiceAccountNamespaceAccess(String namespace, String serviceAccountId,
             String permission) throws IOException, InterruptedException {
