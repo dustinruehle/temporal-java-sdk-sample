@@ -115,7 +115,7 @@ public class NamespaceSetupActivitiesImpl implements NamespaceSetupActivities {
     @Override
     public void grantNamespaceAccess(String namespaceId, String serviceAccountId) {
         try {
-            admin.setServiceAccountNamespaceAccess(namespaceId, serviceAccountId, "NAMESPACE_WRITE");
+            admin.setServiceAccountNamespaceAccess(namespaceId, serviceAccountId, "PERMISSION_WRITE");
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("Failed to grant namespace access: " + e.getMessage(), e);
         }
@@ -146,41 +146,45 @@ public class NamespaceSetupActivitiesImpl implements NamespaceSetupActivities {
     @Override
     public void waitForNamespaceConnectivity(String namespaceId, String region, String apiKeyToken) {
         String grpcEndpoint = regionToGrpcEndpoint(region);
-        for (int i = 0; i < MAX_POLL_ITERATIONS; i++) {
-            Activity.getExecutionContext().heartbeat("poll " + i);
-            WorkflowServiceStubs stubs = null;
-            try {
-                stubs = WorkflowServiceStubs.newServiceStubs(
-                        WorkflowServiceStubsOptions.newBuilder()
-                                .setTarget(grpcEndpoint)
-                                .setEnableHttps(true)
-                                .addApiKey(() -> apiKeyToken)
-                                .build());
-                WorkflowClient client = WorkflowClient.newInstance(
-                        stubs,
-                        WorkflowClientOptions.newBuilder().setNamespace(namespaceId).build());
-                // A simple gRPC call to verify connectivity and auth
-                client.getWorkflowServiceStubs().blockingStub()
-                        .describeNamespace(io.temporal.api.workflowservice.v1.DescribeNamespaceRequest.newBuilder()
-                                .setNamespace(namespaceId)
-                                .build());
-                return;
-            } catch (Exception e) {
-                // PERMISSION_DENIED or connection errors — continue polling
-            } finally {
-                if (stubs != null) {
-                    stubs.shutdown();
+        System.out.println("[waitForNamespaceConnectivity] endpoint=" + grpcEndpoint
+                + " namespace=" + namespaceId
+                + " apiKeyPrefix=" + apiKeyToken.substring(0, Math.min(20, apiKeyToken.length())) + "...");
+        WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(
+                WorkflowServiceStubsOptions.newBuilder()
+                        .setTarget(grpcEndpoint)
+                        .setEnableHttps(true)
+                        .addApiKey(() -> apiKeyToken)
+                        .build());
+        try {
+            WorkflowClient client = WorkflowClient.newInstance(
+                    stubs,
+                    WorkflowClientOptions.newBuilder().setNamespace(namespaceId).build());
+            for (int i = 0; i < MAX_POLL_ITERATIONS; i++) {
+                try {
+                    // A simple gRPC call to verify connectivity and auth
+                    client.getWorkflowServiceStubs().blockingStub()
+                            .describeNamespace(
+                                    io.temporal.api.workflowservice.v1.DescribeNamespaceRequest.newBuilder()
+                                            .setNamespace(namespaceId)
+                                            .build());
+                    return;
+                } catch (Exception e) {
+                    System.out.println("[waitForNamespaceConnectivity] poll " + i
+                            + " failed: " + e.getClass().getSimpleName() + " — " + e.getMessage());
                 }
+                try {
+                    Thread.sleep(POLL_INTERVAL_MS);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException("Interrupted while waiting for namespace connectivity", e);
+                }
+                Activity.getExecutionContext().heartbeat("poll " + i);
             }
-            try {
-                Thread.sleep(POLL_INTERVAL_MS);
-            } catch (InterruptedException e) {
-                throw new RuntimeException("Interrupted while waiting for namespace connectivity", e);
-            }
+            throw new RuntimeException(
+                    "Namespace " + namespaceId + " did not become reachable within "
+                            + (MAX_POLL_ITERATIONS * POLL_INTERVAL_MS / 1000) + " seconds");
+        } finally {
+            stubs.shutdown();
         }
-        throw new RuntimeException(
-                "Namespace " + namespaceId + " did not become reachable within "
-                        + (MAX_POLL_ITERATIONS * POLL_INTERVAL_MS / 1000) + " seconds");
     }
 
     @Override

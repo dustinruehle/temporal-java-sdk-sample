@@ -241,10 +241,10 @@ class TemporalCloudAdminTest {
 
     @Test
     void testBuildSetNamespaceAccessRequestBody() {
-        String json = admin.buildSetNamespaceAccessRequestBody("NAMESPACE_WRITE", "rv-456");
+        String json = admin.buildSetNamespaceAccessRequestBody("PERMISSION_WRITE", "rv-456");
 
         JsonObject body = admin.parseResponse(json);
-        assertEquals("NAMESPACE_WRITE", body.get("role").getAsString());
+        assertEquals("PERMISSION_WRITE", body.getAsJsonObject("access").get("permission").getAsString());
         assertEquals("rv-456", body.get("resourceVersion").getAsString());
     }
 

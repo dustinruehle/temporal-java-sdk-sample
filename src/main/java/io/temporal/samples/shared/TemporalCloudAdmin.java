@@ -348,12 +348,14 @@ public final class TemporalCloudAdmin {
      * Builds the JSON request body for setting namespace access on a service account.
      * Exposed for testing.
      *
-     * @param role the namespace permission (e.g. "NAMESPACE_WRITE")
+     * @param permission the namespace permission enum (e.g. "PERMISSION_WRITE")
      * @param resourceVersion the current resource version of the service account
      */
-    public String buildSetNamespaceAccessRequestBody(String role, String resourceVersion) {
+    public String buildSetNamespaceAccessRequestBody(String permission, String resourceVersion) {
+        JsonObject access = new JsonObject();
+        access.addProperty("permission", permission);
         JsonObject body = new JsonObject();
-        body.addProperty("role", role);
+        body.add("access", access);
         body.addProperty("resourceVersion", resourceVersion);
         return gson.toJson(body);
     }

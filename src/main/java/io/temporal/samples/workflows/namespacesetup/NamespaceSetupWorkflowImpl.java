@@ -21,7 +21,7 @@ public class NamespaceSetupWorkflowImpl implements NamespaceSetupWorkflow {
                     NamespaceSetupActivities.class,
                     ActivityOptions.newBuilder()
                             .setStartToCloseTimeout(Duration.ofSeconds(660))
-                            .setHeartbeatTimeout(Duration.ofSeconds(10))
+                            .setHeartbeatTimeout(Duration.ofSeconds(30))
                             .build());
 
     private final NamespaceSetupActivities longRunningActivities =
