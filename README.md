@@ -127,6 +127,57 @@ export $(cat .env | xargs)
 
 The demo will create the namespace, then poll until it reaches `ACTIVE` state.
 
+**Create a namespace with API key auth enabled:**
+```bash
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create my-new-namespace aws-us-east-1 apikey"
+```
+
+**Update a namespace (enable API key auth):**
+```bash
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="update my-namespace.acctid enable-apikey-auth"
+```
+
+**Create a service account:**
+```bash
+# Default role (ROLE_READ):
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create-service-account my-worker-sa"
+
+# Explicit role:
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create-service-account my-worker-sa ROLE_DEVELOPER"
+```
+
+The response will print a **service account ID** (e.g. `sa-abc123`). This is different from the display name you provided — subsequent commands (`grant-ns-access`, `create-api-key`) require this `sa-xxxxx` ID, not the display name. You can also find it in the Temporal Cloud UI under **Settings → Service Accounts**.
+
+**Grant a service account access to a namespace:**
+```bash
+# Uses the sa-xxxxx ID, not the display name
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="grant-ns-access my-namespace.acctid sa-abc123 NAMESPACE_WRITE"
+```
+
+**Create an API key for a service account:**
+```bash
+# Uses the sa-xxxxx ID, not the display name. Default expiry (90 days):
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create-api-key worker-key sa-abc123"
+
+# Explicit expiry:
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create-api-key worker-key sa-abc123 2026-12-31T00:00:00Z"
+```
+
+**One-shot setup (namespace + service account + access + API key):**
+```bash
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="setup my-namespace aws-us-east-1"
+```
+
+This creates a namespace with API key auth, waits for it to become ACTIVE, creates a service account, grants it `NAMESPACE_WRITE` access, and creates an API key — all in one command.
+
 **Delete a namespace:**
 ```bash
 export $(cat .env | xargs)
@@ -137,7 +188,7 @@ export $(cat .env | xargs)
 | Class | Role |
 |---|---|
 | `TemporalCloudAdmin` | HTTP client wrapper for the Cloud Operations API |
-| `NamespaceManagerDemo` | Runnable demo that lists/creates/deletes namespaces |
+| `NamespaceManagerDemo` | Runnable demo that lists/creates/updates/deletes namespaces and manages API keys |
 
 ## Concepts Roadmap
 
