@@ -15,15 +15,19 @@ A showcase project demonstrating workflow and activity patterns using the Tempor
 ```
 src/main/java/io/temporal/samples/
 ├── activities/        # Activity interfaces + implementations
-│   └── helloworld/
+│   ├── helloworld/
+│   └── namespacesetup/
 ├── shared/            # Shared utilities (TemporalCloudClient, TemporalCloudAdmin)
 ├── starters/          # Workflow starter classes (each has a main())
 │   ├── helloworld/
-│   └── namespaces/
+│   ├── namespaces/
+│   └── namespacesetup/
 ├── workers/           # Worker startup classes (each has a main())
-│   └── helloworld/
+│   ├── helloworld/
+│   └── namespacesetup/
 └── workflows/         # Workflow interfaces + implementations
-    └── helloworld/
+    ├── helloworld/
+    └── namespacesetup/
 ```
 
 ## Setup
@@ -189,6 +193,67 @@ export $(cat .env | xargs)
 |---|---|
 | `TemporalCloudAdmin` | HTTP client wrapper for the Cloud Operations API |
 | `NamespaceManagerDemo` | Runnable demo that lists/creates/updates/deletes namespaces and manages API keys |
+
+## Namespace Setup Workflow (Orchestration Demo)
+
+This example reimplements the imperative `NamespaceManagerDemo.setup()` flow as a **Temporal workflow**. Each Cloud Operations API call becomes a granular activity, polling uses durable `Workflow.sleep`, and the final step connects to the newly created namespace to run a HelloWorld workflow on it.
+
+**What it demonstrates:**
+- Workflow orchestration of multi-step provisioning
+- Granular activities for visibility and retryability
+- Durable timers with `Workflow.sleep()` for polling loops
+- Dynamic Temporal client creation (connecting to a freshly provisioned namespace at runtime)
+
+**Architecture:**
+```
+[Existing Temporal instance]                    [Temporal Cloud - new namespace]
+        │                                                  │
+  NamespaceSetupWorker                              HelloWorldWorker
+        │                                           (started in-process
+  NamespaceSetupWorkflow                             by final activity)
+   ├─ createNamespace()         ── REST ──►  Cloud Ops API
+   ├─ Workflow.sleep + getNamespaceState() loop
+   ├─ createServiceAccount()    ── REST ──►  Cloud Ops API
+   ├─ Workflow.sleep + isServiceAccountReady() loop
+   ├─ grantNamespaceAccess()    ── REST ──►  Cloud Ops API
+   ├─ createApiKey()            ── REST ──►  Cloud Ops API
+   └─ runHelloWorldWorkflow()   ── gRPC ──►  New namespace
+```
+
+**Setup:**
+
+Ensure both `TEMPORAL_API_KEY` (for the existing Temporal instance) and `TEMPORAL_CLOUD_API_KEY` (admin-scoped, for Cloud Operations API) are in your `.env` file.
+
+**Terminal 1 — Start the worker:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.workers.namespacesetup.NamespaceSetupWorker
+```
+
+**Terminal 2 — Run the starter:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespacesetup.NamespaceSetupStarter \
+  --args="my-test-ns aws-us-east-1"
+```
+
+Expected output:
+```
+=== Namespace Setup Complete ===
+  Namespace:       my-test-ns.acctid
+  Service Account: sa-abc123
+  API Key ID:      key-xyz789
+  HelloWorld:      Hello, Namespace Setup!
+```
+
+You can watch the workflow in the Temporal Web UI — each activity is visible as a separate event in the workflow history.
+
+| Class | Role |
+|---|---|
+| `NamespaceSetupWorkflow` / `Impl` | Orchestration workflow — sequences all steps with durable sleep |
+| `NamespaceSetupActivities` / `Impl` | Granular activities — one per Cloud API call + HelloWorld runner |
+| `NamespaceSetupWorker` | Registers workflow + activities, polls task queue |
+| `NamespaceSetupStarter` | Creates and executes the setup workflow |
 
 ## Concepts Roadmap
 
