@@ -38,7 +38,8 @@ src/main/java/io/temporal/samples/
 
 ## Concepts to Showcase
 
-- [ ] Basic workflow + activity (Hello World)
+- [x] Basic workflow + activity (Hello World)
+- [x] Programmatic namespace management (Cloud Operations API)
 - [ ] Long-running workflows with heartbeating
 - [ ] Child workflows
 - [ ] Signals and Queries

@@ -23,6 +23,7 @@ dependencies {
     implementation("io.temporal:temporal-opentracing:$temporalVersion")
 
     implementation("ch.qos.logback:logback-classic:1.5.16")
+    implementation("com.google.code.gson:gson:2.11.0")
 
     testImplementation("io.temporal:temporal-testing:$temporalVersion")
     testImplementation(platform("org.junit:junit-bom:5.11.4"))

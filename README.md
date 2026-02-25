@@ -16,9 +16,10 @@ A showcase project demonstrating workflow and activity patterns using the Tempor
 src/main/java/io/temporal/samples/
 ├── activities/        # Activity interfaces + implementations
 │   └── helloworld/
-├── shared/            # Shared utilities (e.g., TemporalCloudClient)
+├── shared/            # Shared utilities (TemporalCloudClient, TemporalCloudAdmin)
 ├── starters/          # Workflow starter classes (each has a main())
-│   └── helloworld/
+│   ├── helloworld/
+│   └── namespaces/
 ├── workers/           # Worker startup classes (each has a main())
 │   └── helloworld/
 └── workflows/         # Workflow interfaces + implementations
@@ -99,9 +100,49 @@ Key classes:
 | `HelloWorldStarter` | Creates and executes the workflow |
 | `TemporalCloudClient` | Shared utility for Temporal Cloud API key auth |
 
+## Namespace Management (Cloud Operations API)
+
+This example demonstrates programmatic namespace creation on Temporal Cloud using the [Cloud Operations API](https://docs.temporal.io/ops). The Java SDK's `RegisterNamespace` gRPC call only works with self-hosted Temporal — for Cloud, you must use the Cloud Operations REST API.
+
+**Setup:**
+
+Add `TEMPORAL_CLOUD_API_KEY` to your `.env` file (this needs an admin-scoped API key with namespace management permissions — it may differ from your namespace-scoped `TEMPORAL_API_KEY`):
+```
+TEMPORAL_CLOUD_API_KEY=<admin-scoped-api-key>
+```
+
+**List namespaces:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="list"
+```
+
+**Create a namespace:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="create my-new-namespace aws-us-east-1"
+```
+
+The demo will create the namespace, then poll until it reaches `ACTIVE` state.
+
+**Delete a namespace:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.namespaces.NamespaceManagerDemo \
+  --args="delete my-namespace.acctid"
+```
+
+| Class | Role |
+|---|---|
+| `TemporalCloudAdmin` | HTTP client wrapper for the Cloud Operations API |
+| `NamespaceManagerDemo` | Runnable demo that lists/creates/deletes namespaces |
+
 ## Concepts Roadmap
 
 - [x] Basic workflow + activity (Hello World)
+- [x] Programmatic namespace management (Cloud Operations API)
 - [ ] Long-running workflows with heartbeating
 - [ ] Child workflows
 - [ ] Signals and Queries
