@@ -49,7 +49,32 @@ src/main/java/io/temporal/samples/
    |---|---|
    | `TEMPORAL_ADDRESS` | Temporal Cloud gRPC endpoint (e.g., `us-east-1.aws.api.temporal.io:7233`) |
    | `TEMPORAL_NAMESPACE` | Your Cloud namespace in `name.accountId` format |
-   | `TEMPORAL_API_KEY` | API key from Temporal Cloud (raw key, no `Bearer` prefix) |
+   | `TEMPORAL_API_KEY` | Namespace-scoped API key for gRPC auth — see [Creating API Keys](#creating-api-keys) below |
+
+   ### Creating API Keys
+
+   This project uses two separate API keys for different purposes:
+
+   - **`TEMPORAL_API_KEY`** authenticates to a specific namespace over gRPC — used by workers and workflow starters (e.g., Hello World).
+   - **`TEMPORAL_CLOUD_API_KEY`** authenticates to the [Cloud Operations REST API](https://docs.temporal.io/ops) for admin tasks like creating namespaces and service accounts — only needed for the Namespace Management and Namespace Setup Workflow examples.
+
+   > Both keys can be the same key if your personal key has admin-level permissions. For production use, keep them separate (principle of least privilege).
+
+   **Creating `TEMPORAL_API_KEY`:**
+
+   1. Log in to [Temporal Cloud](https://cloud.temporal.io)
+   2. Go to **Settings → API Keys** to create a personal API key (simplest for getting started)
+   3. Click **Create API Key**, give it a name and expiry
+   4. Copy the token — it is only shown once
+   5. Paste the raw token into your `.env` file (no `Bearer` prefix)
+
+   **Creating `TEMPORAL_CLOUD_API_KEY`:**
+
+   1. Go to **Settings → API Keys** in [Temporal Cloud](https://cloud.temporal.io)
+   2. Create a personal API key — your user account must have an account-level role (Admin or Developer) that grants namespace management permissions
+   3. Alternatively, create a [service account](https://docs.temporal.io/cloud/service-accounts) with `ROLE_ADMIN` or `ROLE_DEVELOPER` and generate an API key for it
+
+   See also: [API Keys docs](https://docs.temporal.io/cloud/api-keys), [Service Accounts docs](https://docs.temporal.io/cloud/service-accounts), [Cloud Access Control](https://docs.temporal.io/best-practices/cloud-access-control).
 
 3. Load the environment variables:
    ```bash
@@ -110,7 +135,7 @@ This example demonstrates programmatic [namespace](https://docs.temporal.io/clou
 
 **Setup:**
 
-Add `TEMPORAL_CLOUD_API_KEY` to your `.env` file (this needs an admin-scoped API key with namespace management permissions — it may differ from your namespace-scoped `TEMPORAL_API_KEY`):
+Add `TEMPORAL_CLOUD_API_KEY` to your `.env` file (this needs an API key with account-level admin permissions — see [Creating API Keys](#creating-api-keys). It may be the same as `TEMPORAL_API_KEY` if your key has admin access, but a separate admin-scoped key is recommended):
 ```
 TEMPORAL_CLOUD_API_KEY=<admin-scoped-api-key>
 ```
