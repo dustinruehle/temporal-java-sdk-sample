@@ -268,6 +268,100 @@ class TemporalCloudAdminTest {
     }
 
     @Test
+    void testToSearchAttributeType() {
+        assertEquals(1, admin.toSearchAttributeType("Text"));
+        assertEquals(2, admin.toSearchAttributeType("Keyword"));
+        assertEquals(3, admin.toSearchAttributeType("Int"));
+        assertEquals(4, admin.toSearchAttributeType("Double"));
+        assertEquals(5, admin.toSearchAttributeType("Bool"));
+        assertEquals(6, admin.toSearchAttributeType("Datetime"));
+        assertEquals(7, admin.toSearchAttributeType("KeywordList"));
+    }
+
+    @Test
+    void testToSearchAttributeTypeCaseInsensitive() {
+        assertEquals(2, admin.toSearchAttributeType("keyword"));
+        assertEquals(2, admin.toSearchAttributeType("KEYWORD"));
+        assertEquals(7, admin.toSearchAttributeType("keywordlist"));
+    }
+
+    @Test
+    void testToSearchAttributeTypeInvalid() {
+        assertThrows(IllegalArgumentException.class, () -> admin.toSearchAttributeType("Unknown"));
+    }
+
+    @Test
+    void testExtractSearchAttributesFromSpec() {
+        String responseJson =
+                """
+                {
+                  "namespace": {
+                    "namespace": "my-ns.acctid",
+                    "resourceVersion": "rv-1",
+                    "spec": {
+                      "searchAttributes": {
+                        "app_id": 2,
+                        "customer_name": 1,
+                        "is_active": 5
+                      }
+                    }
+                  }
+                }
+                """;
+
+        JsonObject response = admin.parseResponse(responseJson);
+        JsonObject attrs = admin.extractSearchAttributes(response);
+
+        assertEquals(3, attrs.size());
+        assertEquals(2, attrs.get("app_id").getAsInt());
+        assertEquals(1, attrs.get("customer_name").getAsInt());
+        assertEquals(5, attrs.get("is_active").getAsInt());
+    }
+
+    @Test
+    void testExtractSearchAttributesFromLegacyField() {
+        String responseJson =
+                """
+                {
+                  "namespace": {
+                    "namespace": "my-ns.acctid",
+                    "resourceVersion": "rv-1",
+                    "spec": {
+                      "customSearchAttributes": {
+                        "old_attr": 3
+                      }
+                    }
+                  }
+                }
+                """;
+
+        JsonObject response = admin.parseResponse(responseJson);
+        JsonObject attrs = admin.extractSearchAttributes(response);
+
+        assertEquals(1, attrs.size());
+        assertEquals(3, attrs.get("old_attr").getAsInt());
+    }
+
+    @Test
+    void testExtractSearchAttributesEmpty() {
+        String responseJson =
+                """
+                {
+                  "namespace": {
+                    "namespace": "my-ns.acctid",
+                    "resourceVersion": "rv-1",
+                    "spec": {}
+                  }
+                }
+                """;
+
+        JsonObject response = admin.parseResponse(responseJson);
+        JsonObject attrs = admin.extractSearchAttributes(response);
+
+        assertEquals(0, attrs.size());
+    }
+
+    @Test
     void testParseCreateApiKeyResponse() {
         String responseJson =
                 """

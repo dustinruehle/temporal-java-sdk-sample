@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * HTTP client wrapper for the Temporal Cloud Operations API.
@@ -236,6 +237,122 @@ public final class TemporalCloudAdmin {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         return handleResponse(response, "Set namespace access");
+    }
+
+    /**
+     * Adds custom search attributes to a namespace on Temporal Cloud. Fetches the current
+     * namespace spec, merges in the new search attributes, and updates the namespace.
+     *
+     * <p>On Temporal Cloud, search attributes are managed via the Cloud Operations API's
+     * {@code UpdateNamespace} endpoint — the Java SDK's {@code OperatorService} is not supported.
+     *
+     * @param namespaceId the full namespace ID (e.g. "my-ns.acctid")
+     * @param searchAttributes map of attribute name to user-friendly type string (e.g. "Keyword",
+     *     "Text", "Int", "Double", "Bool", "Datetime", "KeywordList")
+     */
+    public JsonObject addSearchAttributes(String namespaceId, Map<String, String> searchAttributes)
+            throws IOException, InterruptedException {
+        JsonObject ns = getNamespace(namespaceId);
+        JsonObject nsObj = ns.getAsJsonObject("namespace");
+        String resourceVersion = nsObj.get("resourceVersion").getAsString();
+
+        JsonObject currentSpec =
+                nsObj.has("spec") ? nsObj.getAsJsonObject("spec").deepCopy() : new JsonObject();
+
+        // Get existing search attributes — flat map directly on the spec
+        // v0.3.0+ uses "searchAttributes"; older uses "customSearchAttributes"
+        JsonObject existingAttrs = new JsonObject();
+        if (currentSpec.has("searchAttributes")
+                && currentSpec.get("searchAttributes").isJsonObject()) {
+            existingAttrs = currentSpec.getAsJsonObject("searchAttributes").deepCopy();
+        } else if (currentSpec.has("customSearchAttributes")
+                && currentSpec.get("customSearchAttributes").isJsonObject()) {
+            existingAttrs = currentSpec.getAsJsonObject("customSearchAttributes").deepCopy();
+        }
+
+        // Merge new attributes
+        for (Map.Entry<String, String> entry : searchAttributes.entrySet()) {
+            existingAttrs.addProperty(entry.getKey(), toSearchAttributeType(entry.getValue()));
+        }
+
+        // Use the v0.3.0+ field name
+        currentSpec.add("searchAttributes", existingAttrs);
+        // Remove legacy field to avoid conflict
+        currentSpec.remove("customSearchAttributes");
+
+        String requestBody = buildUpdateRequestBody(currentSpec, resourceVersion);
+
+        HttpRequest request =
+                newRequestBuilder(NAMESPACES_PATH + "/" + namespaceId)
+                        .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                        .build();
+
+        HttpResponse<String> response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        return handleResponse(response, "Add search attributes");
+    }
+
+    /**
+     * Gets the custom search attributes configured on a namespace.
+     *
+     * @param namespaceId the full namespace ID (e.g. "my-ns.acctid")
+     * @return a JsonObject mapping attribute names to their type enum values
+     */
+    public JsonObject getSearchAttributes(String namespaceId)
+            throws IOException, InterruptedException {
+        JsonObject ns = getNamespace(namespaceId);
+        return extractSearchAttributes(ns);
+    }
+
+    /**
+     * Extracts custom search attributes from a namespace API response. Exposed for testing.
+     *
+     * @param namespaceResponse the full namespace response from the Cloud Operations API
+     * @return a JsonObject mapping attribute names to their type enum values
+     */
+    public JsonObject extractSearchAttributes(JsonObject namespaceResponse) {
+        JsonObject nsObj = namespaceResponse.getAsJsonObject("namespace");
+        if (nsObj == null || !nsObj.has("spec")) {
+            return new JsonObject();
+        }
+        JsonObject spec = nsObj.getAsJsonObject("spec");
+
+        // v0.3.0+ uses "searchAttributes" as a flat map; older uses "customSearchAttributes"
+        if (spec.has("searchAttributes")
+                && spec.get("searchAttributes").isJsonObject()) {
+            return spec.getAsJsonObject("searchAttributes");
+        }
+        if (spec.has("customSearchAttributes")
+                && spec.get("customSearchAttributes").isJsonObject()) {
+            return spec.getAsJsonObject("customSearchAttributes");
+        }
+        return new JsonObject();
+    }
+
+    /**
+     * Maps a user-friendly search attribute type string to the Cloud Operations API integer enum.
+     * Exposed for testing.
+     *
+     * <p>Supported types: Text (1), Keyword (2), Int (3), Double (4), Bool (5), Datetime (6),
+     * KeywordList (7).
+     *
+     * @param userType the type string (case-insensitive)
+     * @return the integer enum value
+     * @throws IllegalArgumentException if the type is not recognized
+     */
+    public int toSearchAttributeType(String userType) {
+        return switch (userType.toLowerCase()) {
+            case "text" -> 1;
+            case "keyword" -> 2;
+            case "int" -> 3;
+            case "double" -> 4;
+            case "bool" -> 5;
+            case "datetime" -> 6;
+            case "keywordlist" -> 7;
+            default -> throw new IllegalArgumentException(
+                    "Unknown search attribute type: " + userType
+                            + ". Supported: Text, Keyword, Int, Double, Bool, Datetime, KeywordList");
+        };
     }
 
     /**

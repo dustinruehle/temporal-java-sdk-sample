@@ -21,7 +21,8 @@ src/main/java/io/temporal/samples/
 ├── starters/          # Workflow starter classes (each has a main())
 │   ├── helloworld/
 │   ├── namespaces/
-│   └── namespacesetup/
+│   ├── namespacesetup/
+│   └── searchattributes/
 ├── workers/           # Worker startup classes (each has a main())
 │   ├── helloworld/
 │   └── namespacesetup/
@@ -316,10 +317,82 @@ You can watch the workflow in the Temporal Web UI — each activity is visible a
 | `NamespaceSetupWorker` | Registers workflow + activities, polls task queue |
 | `NamespaceSetupStarter` | Creates and executes the setup workflow |
 
+## Search Attributes (Cloud Operations API)
+
+This example demonstrates managing custom [search attributes](https://docs.temporal.io/visibility#search-attribute) on Temporal Cloud using the Cloud Operations API.
+
+**Why not `OperatorService`?**
+
+The Java SDK's `OperatorService.addSearchAttributes()` is **not supported on Temporal Cloud** — it only works with self-hosted Temporal Server. Even if the `NullPointerException` from standalone `OperatorServiceStubs` is fixed (by deriving it from an existing `WorkflowServiceStubs` via `setChannel(service.getRawChannel())`), Cloud returns `PERMISSION_DENIED`. For Temporal Cloud, search attributes must be managed via the Cloud Operations API's `UpdateNamespace` endpoint, which is what this demo implements.
+
+> **Self-hosted workaround:** If you're using self-hosted Temporal and hit a `NullPointerException` (`scope is null` in `GrpcMetricsInterceptor`), create `OperatorServiceStubs` from an existing `WorkflowServiceStubs`:
+> ```java
+> OperatorServiceStubs operatorService = OperatorServiceStubs.newServiceStubs(
+>     OperatorServiceStubsOptions.newBuilder()
+>         .setChannel(workflowServiceStubs.getRawChannel())
+>         .validateAndBuildWithDefaults());
+> ```
+
+**Setup:**
+
+Requires `TEMPORAL_CLOUD_API_KEY` (same as namespace management — see [Creating API Keys](#creating-api-keys)):
+```
+TEMPORAL_CLOUD_API_KEY=<admin-scoped-api-key>
+```
+
+**List search attributes on a namespace:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.searchattributes.SearchAttributeDemo \
+  --args="list my-ns.acctid"
+```
+
+- `list` — the command
+- `my-ns.acctid` — the full namespace ID in `name.accountId` format (same format shown in the Temporal Cloud UI)
+
+**Add search attributes:**
+```bash
+export $(cat .env | xargs)
+./gradlew execute -PmainClass=io.temporal.samples.starters.searchattributes.SearchAttributeDemo \
+  --args="add my-ns.acctid app_id=Keyword customer_name=Text priority=Int"
+```
+
+- `add` — the command
+- `my-ns.acctid` — the full namespace ID
+- `app_id=Keyword customer_name=Text priority=Int` — one or more `name=type` pairs, space-separated. Each pair creates a search attribute with the given name and [type](https://docs.temporal.io/visibility#supported-types).
+
+Adding is **additive** — new attributes are merged with any existing ones on the namespace. Existing attributes are not modified or removed.
+
+**Supported [search attribute types](https://docs.temporal.io/visibility#supported-types):**
+
+| Type | Description | Example values |
+|---|---|---|
+| `Keyword` | Exact-match string — for IDs, enums, status codes | `"pending"`, `"us-east-1"` |
+| `Text` | Full-text searchable string | `"Error processing payment"` |
+| `Int` | Integer number | `1`, `42`, `100` |
+| `Double` | Floating-point number | `3.14`, `99.95` |
+| `Bool` | Boolean flag | `true`, `false` |
+| `Datetime` | Timestamp ([RFC 3339](https://datatracker.ietf.org/doc/html/rfc3339)) | `"2026-03-10T12:00:00Z"` |
+| `KeywordList` | List of exact-match strings (multi-value) | `["urgent", "billing"]` |
+
+**Constraints:**
+- [Limited number](https://docs.temporal.io/cloud/limits#number-of-custom-search-attributes) of custom search attributes per type per namespace on Cloud
+- Deleting a search attribute is not supported — contact [Temporal support](https://support.temporal.io) to remove one
+- Renaming is supported via [`tcld namespace search-attributes rename`](https://docs.temporal.io/cloud/tcld/namespace#rename) (not implemented in this demo)
+- Short propagation delay (~seconds) after creation before the attribute is usable in queries
+
+See also: [Custom Search Attributes](https://docs.temporal.io/visibility#custom-search-attributes), [Search Attribute limits](https://docs.temporal.io/cloud/limits#number-of-custom-search-attributes), [Cloud Operations API](https://docs.temporal.io/ops), [`tcld namespace search-attributes`](https://docs.temporal.io/cloud/tcld/namespace#search-attributes).
+
+| Class | Role |
+|---|---|
+| `SearchAttributeDemo` | CLI demo — list and add search attributes on a namespace |
+| `TemporalCloudAdmin` | HTTP client wrapper for the [Cloud Operations API](https://docs.temporal.io/ops) |
+
 ## Concepts Roadmap
 
 - [x] Basic workflow + activity (Hello World)
 - [x] Programmatic namespace management (Cloud Operations API)
+- [x] Custom search attributes (Cloud Operations API)
 - [ ] Long-running workflows with heartbeating
 - [ ] Child workflows
 - [ ] Signals and Queries
