@@ -2,6 +2,28 @@
 
 A showcase project demonstrating workflow and activity patterns using the Temporal Java SDK, connected to Temporal Cloud.
 
+## What's Inside
+
+- **Workflows + activities** connected to Temporal Cloud with mTLS and API key auth
+- **Programmatic namespace management** via the Cloud Operations API
+- **Namespace setup orchestrated as a Temporal workflow** — heartbeating, durable timers, and granular activities
+- **Custom search attribute management** via the Cloud Operations API
+- **API key auth, service accounts**, and Cloud access control patterns
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Project Structure](#project-structure)
+- [Setup](#setup)
+- [Running the Hello World](#running-the-hello-world)
+- [Running Tests](#running-tests)
+- [How It Works](#how-it-works)
+- [Namespace Management (Cloud Operations API)](#namespace-management-cloud-operations-api)
+- [Namespace Setup Workflow (Orchestration Demo)](#namespace-setup-workflow-orchestration-demo)
+- [Search Attributes (Cloud Operations API)](#search-attributes-cloud-operations-api)
+- [Concepts Roadmap](#concepts-roadmap)
+- [References](#references)
+
 ## Prerequisites
 
 | Requirement | Version |
